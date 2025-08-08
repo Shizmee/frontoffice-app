@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS call_log (
+    id INT(11) NOT NULL AUTO_INCREMENT,
+    entry_date date NOT NULL DEFAULT curdate(),
+    guest_name varchar(100) NOT NULL,
+    room_no varchar(20) NOT NULL,
+    booking_agency varchar(100) NOT NULL,
+    arrival date NOT NULL,
+    departure date NOT NULL,
+    no_of_nights int(11) NOT NULL,
+    time time NOT NULL,
+    house_status varchar(50) NOT NULL,
+    guest_comments text NOT NULL,
+    associate_name varchar(100) DEFAULT NULL,
+    incident text DEFAULT NULL,
+    department varchar(100) DEFAULT NULL,
+    follow_up_by varchar(100) DEFAULT NULL,
+    recovery_action text DEFAULT NULL,
+    guest_satisfaction_level varchar(50) DEFAULT NULL,
+    created_at timestamp NOT NULL DEFAULT current_timestamp(),
+    updated_at timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

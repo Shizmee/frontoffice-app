@@ -1,0 +1,158 @@
+<?php
+require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/meal_count_calculator.php';
+require_once __DIR__ . '/inhouse_fetcher.php';
+require_once __DIR__ . '/departure_fetcher.php';
+require_once __DIR__ . '/occupancy_stats_fetcher.php';
+
+function getMealCounts() {
+    // Get selected date
+    $selectedDate = isset($_SESSION['selected_report_date']) ? $_SESSION['selected_report_date'] : date('Y-m-d', strtotime('tomorrow'));
+
+    // Fetch previous day's in-house guests from fo_bob (for adult/child split)
+    $prevDate = date('Y-m-d', strtotime($selectedDate . ' -1 day'));
+    $prevInhouse = getInHouseGuestsForDate($prevDate);
+    $prevAdults = $prevInhouse['totals']['adult'] ?? 0;
+    $prevChildren = $prevInhouse['totals']['child'] ?? 0;
+    error_log('Previous day in-house: Adults=' . $prevAdults . ', Children=' . $prevChildren);
+
+    // Fetch departing guests for selected date (with DOM time)
+    $departingGuests = getDepartingGuestsWithDomTime($selectedDate);
+
+    // Calculate sum of adults/children departing before 06:00
+    $breakfastDepartures = array_filter($departingGuests, function($guest) {
+        // DOM time is in 'HH:MM' format, treat empty as '00:00'
+        $domTime = $guest['dom_time_to_go'] ?: '00:00';
+        return $domTime < '06:00';
+    });
+    $breakfastDepartingAdults = array_sum(array_column($breakfastDepartures, 'adult'));
+    $breakfastDepartingChildren = array_sum(array_column($breakfastDepartures, 'child'));
+    error_log('Breakfast departures before 06:00: Adults=' . $breakfastDepartingAdults . ', Children=' . $breakfastDepartingChildren);
+
+    // Calculate breakfast count
+    $breakfastAdults = max(0, $prevAdults - $breakfastDepartingAdults);
+    $breakfastChildren = max(0, $prevChildren - $breakfastDepartingChildren);
+    $breakfastTotal = $breakfastAdults + $breakfastChildren;
+
+    // Prepare for HTML display: include DOM TIME for each departure before 06:00
+    $breakfastDepartureDetails = array_map(function($guest) {
+        return [
+            'adult' => $guest['adult'],
+            'child' => $guest['child'],
+            'dom_time' => $guest['dom_time_to_go']
+        ];
+    }, $breakfastDepartures);
+
+    // Calculate sum of adults/children departing before 12:30 (excluding those before 06:00)
+    $lunchDepartures = array_filter($departingGuests, function($guest) {
+        $domTime = $guest['dom_time_to_go'] ?: '00:00';
+        return $domTime >= '06:00' && $domTime < '12:30';
+    });
+    $lunchDepartingAdults = array_sum(array_column($lunchDepartures, 'adult'));
+    $lunchDepartingChildren = array_sum(array_column($lunchDepartures, 'child'));
+    error_log('Lunch departures before 12:30: Adults=' . $lunchDepartingAdults . ', Children=' . $lunchDepartingChildren);
+
+    // Calculate lunch count
+    $lunchAdults = max(0, $breakfastAdults - $lunchDepartingAdults);
+    $lunchChildren = max(0, $breakfastChildren - $lunchDepartingChildren);
+    $lunchTotal = $lunchAdults + $lunchChildren;
+
+    // Prepare for HTML display: include DOM TIME for each departure before 12:30 (after 06:00)
+    $lunchDepartureDetails = array_map(function($guest) {
+        return [
+            'adult' => $guest['adult'],
+            'child' => $guest['child'],
+            'dom_time' => $guest['dom_time_to_go']
+        ];
+    }, $lunchDepartures);
+
+    // Fetch in-house guests for selected date (today's occupancy)
+    $inhouseGuests = getInHouseGuestsForDate($selectedDate);
+    $dinnerAdults = $inhouseGuests['totals']['adult'] ?? 0;
+    $dinnerChildren = $inhouseGuests['totals']['child'] ?? 0;
+    $dinnerTotal = $dinnerAdults + $dinnerChildren;
+
+    return [
+        'Breakfast' => [
+            'adult' => $breakfastAdults,
+            'child' => $breakfastChildren,
+            'total' => $breakfastTotal,
+            'departures' => $breakfastDepartureDetails
+        ],
+        'Lunch' => [
+            'adult' => $lunchAdults,
+            'child' => $lunchChildren,
+            'total' => $lunchTotal,
+            'departures' => $lunchDepartureDetails
+        ],
+        'Dinner' => [
+            'adult' => $dinnerAdults,
+            'child' => $dinnerChildren,
+            'total' => $dinnerTotal
+        ]
+    ];
+}
+
+// Helper functions to fetch in-house and departing guests for a specific date
+function getInHouseGuestsForDate($date) {
+    global $pdo;
+    $query = "
+        SELECT 
+            COALESCE(SUM(Adults), 0) as adult,
+            COALESCE(SUM(Children), 0) as child
+        FROM fo_bob
+        WHERE 
+            (Resv_Status = 'CHECKED IN' OR Resv_Status = 'CHECKED-IN' OR Resv_Status = 'CHECK IN' OR Resv_Status = 'CHECKIN' OR Resv_Status = 'CHECK-IN')
+            AND DATE(Arrival_Date) <= ?
+            AND DATE(Departure_Date) >= ?
+    ";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute([$date, $date]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return [
+        'totals' => [
+            'adult' => (int)$row['adult'],
+            'child' => (int)$row['child']
+        ]
+    ];
+}
+
+function getDepartingGuestsForDate($date) {
+    global $pdo;
+    $query = "
+        SELECT 
+            COALESCE(Adults, 0) as adult,
+            COALESCE(Children, 0) as child,
+            COALESCE(DATE_FORMAT(DEP_INT_TIME, '%H%i'), '0000') as dep_int
+        FROM fo_bob
+        WHERE 
+            (Resv_Status = 'CHECKED IN' OR Resv_Status = 'CHECKED-IN' OR Resv_Status = 'CHECK IN' OR Resv_Status = 'CHECKIN' OR Resv_Status = 'CHECK-IN')
+            AND DATE(Departure_Date) = ?
+            AND (COALESCE(Adults, 0) + COALESCE(Children, 0)) > 0
+    ";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute([$date]);
+    $guests = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return [
+        'guests' => $guests
+    ];
+}
+
+// Helper to fetch departing guests with DOM time for a specific date
+function getDepartingGuestsWithDomTime($date) {
+    global $pdo;
+    $query = "
+        SELECT 
+            COALESCE(Adults, 0) as adult,
+            COALESCE(Children, 0) as child,
+            COALESCE(DATE_FORMAT(DEP_DOM_TIME, '%H:%i'), '00:00') as dom_time_to_go
+        FROM fo_bob
+        WHERE 
+            (Resv_Status = 'CHECKED IN' OR Resv_Status = 'CHECKED-IN' OR Resv_Status = 'CHECK IN' OR Resv_Status = 'CHECKIN' OR Resv_Status = 'CHECK-IN')
+            AND DATE(Departure_Date) = ?
+            AND (COALESCE(Adults, 0) + COALESCE(Children, 0)) > 0
+    ";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute([$date]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}

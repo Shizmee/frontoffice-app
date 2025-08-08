@@ -1,0 +1,2 @@
+ALTER TABLE guest_interactions 
+ADD COLUMN entry_date DATE DEFAULT CURRENT_DATE AFTER id;
