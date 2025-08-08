@@ -40,15 +40,49 @@ $mealCalculator = new MealCountCalculator(
 $mealCounts = $mealCalculator->calculateMealCounts();
 
 function formatGuestNames($guest) {
+    $rawInputs = [];
+
     if (isset($guest['guest_names']) && is_array($guest['guest_names'])) {
-        return implode("<br>", array_map('htmlspecialchars', $guest['guest_names']));
+        $rawInputs = $guest['guest_names'];
     } elseif (!empty($guest['guest_name'])) {
-        // Split by titles (case-insensitive) and keep them
-        $names = preg_split('/\s*(?=\b(?:Mr|Mrs|Miss|Ms|Dr|Prof|Master|Rev)\b)/i', $guest['guest_name']);
-        $names = array_filter(array_map('trim', $names));
-        return implode("<br>", array_map('htmlspecialchars', $names));
+        $rawInputs = [$guest['guest_name']];
     }
-    return '';
+
+    if (empty($rawInputs)) {
+        return '';
+    }
+
+    $extractedNames = [];
+
+    foreach ($rawInputs as $raw) {
+        if (!is_string($raw)) { continue; }
+        $raw = trim($raw);
+        if ($raw === '') { continue; }
+
+        // First split by known titles (case-insensitive) using lookahead so the title stays with the name
+        $titleParts = preg_split('/\s*(?=\b(?:Mr|Mrs|Miss|Ms|Dr|Prof|Master|Rev)\b)/i', $raw);
+
+        foreach ($titleParts as $part) {
+            $part = trim($part);
+            if ($part === '') { continue; }
+
+            // Further split in case multiple names were concatenated without titles
+            // Delimiters handled: 2+ spaces, commas, semicolons, slashes, new lines, HTML <br>
+            $subParts = preg_split('/\s{2,}|\r?\n|<br\s*\/?\s*>|\s*[,;\/]+\s*/i', $part);
+            foreach ($subParts as $name) {
+                $name = trim($name);
+                if ($name !== '') {
+                    $extractedNames[] = $name;
+                }
+            }
+        }
+    }
+
+    if (empty($extractedNames)) {
+        return '';
+    }
+
+    return implode("<br>", array_map('htmlspecialchars', $extractedNames));
 }
 
 
