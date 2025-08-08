@@ -894,7 +894,7 @@ function formatGuestNames($guest) {
                             <tr>
                                 <?php if ($title === 'GUESTS IN HOUSE'): ?>
                                     <td class="border border-gray-700 p-1 bg-gray-900 text-center"><?= htmlspecialchars($guest['room_no']) ?></td>
-                                    <td class="border border-gray-700 p-1 bg-gray-900"><?= isset($guest['guest_names']) ? implode("<br>", array_map('htmlspecialchars', $guest['guest_names'])) : htmlspecialchars($guest['guest_name']) ?></td>
+                                    <td class="border border-gray-700 p-1 bg-gray-900"><?= formatGuestNames($guest) ?></td>
                                     <td class="border border-gray-700 p-1 bg-gray-900 text-center"><?= htmlspecialchars($guest['adult']) ?></td>
                                     <td class="border border-gray-700 p-1 bg-gray-900 text-center"><?= htmlspecialchars($guest['child']) ?></td>
                                     <td class="border border-gray-700 p-1 bg-gray-900 text-center"><?= htmlspecialchars($guest['meal_plan']) ?></td>
@@ -911,7 +911,7 @@ function formatGuestNames($guest) {
                                     <td class="border border-gray-700 p-1 bg-gray-900 whitespace-normal"><?= htmlspecialchars($guest['comments']) ?></td>
                                 <?php elseif ($title === 'ARRIVALS'): ?>
                                     <td class="border border-blue-800 p-1 bg-gray-900 text-center"><?= htmlspecialchars($guest['room_no']) ?></td>
-                                    <td class="border border-gray-700 p-1 bg-gray-900"><?= isset($guest['guest_names']) ? implode("<br>", array_map('htmlspecialchars', $guest['guest_names'])) : htmlspecialchars($guest['guest_name']) ?></td>
+                                    <td class="border border-gray-700 p-1 bg-gray-900"><?= formatGuestNames($guest) ?></td>
                                     <td class="border border-gray-700 p-1 bg-gray-900 text-center"><?= htmlspecialchars($guest['adult']) ?></td>
                                     <td class="border border-gray-700 p-1 bg-gray-900 text-center"><?= htmlspecialchars($guest['child']) ?></td>
                                     <td class="border border-gray-700 p-1 bg-gray-900 text-center"><?= htmlspecialchars($guest['meal_plan']) ?></td>
@@ -929,7 +929,7 @@ function formatGuestNames($guest) {
                                     <td class="border border-gray-700 p-1 bg-gray-900 whitespace-normal"><?= htmlspecialchars($guest['comments']) ?></td>
                                 <?php else: ?>
                                     <td class="border border-gray-700 p-1 bg-gray-900 text-center"><?= htmlspecialchars($guest['room_no']) ?></td>
-                                    <td class="border border-gray-700 p-1 bg-gray-900"><?= isset($guest['guest_names']) ? implode("<br>", array_map('htmlspecialchars', $guest['guest_names'])) : htmlspecialchars($guest['guest_name']) ?></td>
+                                    <td class="border border-gray-700 p-1 bg-gray-900"><?= formatGuestNames($guest) ?></td>
                                     <td class="border border-gray-700 p-1 bg-gray-900 text-center"><?= htmlspecialchars($guest['adult']) ?></td>
                                     <td class="border border-gray-700 p-1 bg-gray-900 text-center"><?= htmlspecialchars($guest['child']) ?></td>
                                     <td class="border border-gray-700 p-1 bg-gray-900 text-center"><?= htmlspecialchars($guest['meal_plan']) ?></td>
